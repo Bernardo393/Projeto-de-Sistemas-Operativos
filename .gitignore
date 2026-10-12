@@ -1,0 +1,10 @@
+# Ignorar objetos compilados
+*.o
+
+# Ignorar executaveis
+servidor_bolsa
+cliente_bolsa
+
+# Ignorar ficheiros de log e temporarios
+eventos_*.txt
+*.tmp
