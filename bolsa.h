@@ -19,5 +19,6 @@ typedef struct {
 void gravar_log(const char* nome_ficheiro, const char* mensagem);
 int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresas, const char *ficheiro_log);
 void verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log);
+int guardar_empresas(const char* ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log);
 
 #endif

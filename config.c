@@ -77,3 +77,39 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     verificar_solucao(empresas, *num_empresas, ficheiro_log);
     return 1;
 }
+
+
+int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+    char ficheiro_tmp[256];
+    snprintf(ficheiro_tmp, sizeof(ficheiro_tmp), "%s.tmp", ficheiro);
+
+    FILE *file = fopen(ficheiro_tmp, "w");
+    if (file == NULL) {
+        char erro[350];
+        snprintf(erro, sizeof(erro), "Erro crítico: Falha ao criar o ficheiro temporário '%s'.", ficheiro_tmp);
+        gravar_log(ficheiro_log, erro);
+        return 0;
+    }
+
+    for (int i = 0; i < num_empresas; i++) {
+        fprintf(file, "%s | %d | %.2f | %.2f\n", 
+            empresas[i].nome,
+            empresas[i].acoes_disponiveis,
+            empresas[i].valor_nominal,
+            empresas[i].ultima_cotacao);
+    }
+
+    fclose(file);
+
+    if (rename(ficheiro_tmp, ficheiro) != 0) {
+        char erro[350];
+        snprintf(erro, sizeof(erro), "Erro critico: Falha ao substituir '%s' pelo temporario.", ficheiro);        
+        gravar_log(ficheiro_log, erro);
+        return 0;
+    }
+
+    char msg[350];
+    snprintf(msg, sizeof(msg), "Configuracao guardada com sucesso: %d empresas no ficheiro '%s'.", num_empresas, ficheiro);
+    gravar_log(ficheiro_log, msg);
+    return 1;
+}
