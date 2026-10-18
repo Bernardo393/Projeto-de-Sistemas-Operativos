@@ -7,6 +7,7 @@
 
 #define MAX_EMPRESAS 50
 #define MAX_NOME 30
+#define MAX_CARACTEIRAS 20
 
 typedef struct {
     char nome[MAX_NOME];
@@ -24,10 +25,23 @@ typedef struct {
     float preco;
 } OrdemCV;
 
+typedef struct {
+    char nome_empresa[MAX_NOME];
+    int quantidade;
+} DescritorAcao;
+
+typedef struct {
+    char id_investidor[MAX_NOME];
+    DescritorAcao acoes[Max_Empresas];
+    int num_ativos;
+} CarteiraInvestidor;
+
+
+
 // Funções para manipulação de empresas
 void gravar_log(const char* nome_ficheiro, const char* mensagem);
 int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresas, const char *ficheiro_log);
-void verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log);
+int verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log);
 int guardar_empresas(const char* ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log);
 
 // Funções para manipulação de ordens de compra e venda

@@ -1,9 +1,14 @@
 #include "bolsa.h"
 
-void verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+int verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     int erros = 0;
-
     char buffer_log[150];
+
+    if (num_empresas <= 0) {
+        printf("Erro: Nenhuma empresa válida foi carregada da configuração.\n");
+        gravar_log(ficheiro_log, "Erro crítico: Ficheiro de configuração sem empresas válidas.");
+        return 0;
+    }
 
     for (int i = 0; i < num_empresas; i++) {
         const Empresa *empresa = &empresas[i];
@@ -14,29 +19,30 @@ void verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheir
             gravar_log(ficheiro_log, buffer_log);
             erros++;
         }
-        if (empresa->valor_nominal < 0) {
-            printf("Erro: A empresa '%s' tem valor nominal negativo (%.2f).\n", empresa->nome, empresa->valor_nominal);
-            snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem valor nominal negativo (%.2f).", empresa->nome, empresa->valor_nominal);
+        if (empresa->valor_nominal <= 0.0f) {
+            printf("Erro: A empresa '%s' tem valor nominal inválido (%.2f).\n", empresa->nome, empresa->valor_nominal);
+            snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem valor nominal inválido (%.2f).", empresa->nome, empresa->valor_nominal);
             gravar_log(ficheiro_log, buffer_log);
             erros++;
         }
-        if (empresa->ultima_cotacao < 0) {
-            printf("Erro: A empresa '%s' tem última cotação negativa (%.2f).\n", empresa->nome, empresa->ultima_cotacao);
-            snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem última cotação negativa (%.2f).", empresa->nome, empresa->ultima_cotacao);
+        if (empresa->ultima_cotacao <= 0.0f) {
+            printf("Erro: A empresa '%s' tem última cotação inválida (%.2f).\n", empresa->nome, empresa->ultima_cotacao);
+            snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem última cotação inválida (%.2f).", empresa->nome, empresa->ultima_cotacao);
             gravar_log(ficheiro_log, buffer_log);
             erros++;
         }
-
     }
 
-    if(erros == 0) {
-            printf("Verificação: solução correta.\n");
-            gravar_log(ficheiro_log, "Verificação da configuração: solução correta.");
-        } else {
-            printf("Verificação: errada em %d números.\n", erros);
-            snprintf(buffer_log, sizeof(buffer_log), "Verificação da configuração: errada em %d números.", erros);
-            gravar_log(ficheiro_log, buffer_log);
-        }
+    if (erros == 0) {
+        printf("Verificação: solução correta.\n");
+        gravar_log(ficheiro_log, "Verificação da configuração: solução correta.");
+        return 1;
+    } else {
+        printf("Verificação: errada em %d números.\n", erros);
+        snprintf(buffer_log, sizeof(buffer_log), "Verificação da configuração: errada em %d números.", erros);
+        gravar_log(ficheiro_log, buffer_log);
+        return 0;
+    }
 }
 
 int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresas, const char *ficheiro_log) {
@@ -74,10 +80,8 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     snprintf(msg_sucesso, sizeof(msg_sucesso), "Configuração carregada com sucesso: %d empresas lidas.", *num_empresas);
     gravar_log(ficheiro_log, msg_sucesso);
 
-    verificar_solucao(empresas, *num_empresas, ficheiro_log);
-    return 1;
+    return verificar_solucao(empresas, *num_empresas, ficheiro_log);
 }
-
 
 int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     char ficheiro_tmp[256];
@@ -103,13 +107,13 @@ int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas,
 
     if (rename(ficheiro_tmp, ficheiro) != 0) {
         char erro[350];
-        snprintf(erro, sizeof(erro), "Erro critico: Falha ao substituir '%s' pelo temporario.", ficheiro);        
+        snprintf(erro, sizeof(erro), "Erro crítico: Falha ao substituir '%s' pelo temporário.", ficheiro);        
         gravar_log(ficheiro_log, erro);
         return 0;
     }
 
     char msg[350];
-    snprintf(msg, sizeof(msg), "Configuracao guardada com sucesso: %d empresas no ficheiro '%s'.", num_empresas, ficheiro);
+    snprintf(msg, sizeof(msg), "Configuração guardada com sucesso: %d empresas no ficheiro '%s'.", num_empresas, ficheiro);
     gravar_log(ficheiro_log, msg);
     return 1;
 }
@@ -119,15 +123,14 @@ int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const cha
 
     // Verifica se os campos obrigatórios estão preenchidos
     if (ordem.corretora[0] == '\0' || ordem.investidor[0] == '\0' || ordem.nome_empresa[0] == '\0') {
-        snprintf(buffer_log, sizeof(buffer_log), "Erro: Ordem inválida - campos obrigatórios não preenchidos.");
-        gravar_log(ficheiro_log, buffer_log);
+        gravar_log(ficheiro_log, "Erro: Ordem inválida - campos obrigatórios não preenchidos.");
         return 0;
     }
     
-    // Verifica se o tipo de ordem é válido
-    if (ordem.tipo !='C' && ordem.tipo != 'V') {
+    // Verifica se o tipo de ordem é válido ('C' ou 'V')
+    if (ordem.tipo != 'C' && ordem.tipo != 'V') {
         snprintf(buffer_log, sizeof(buffer_log), 
-                 "Ordem INVALIDA [%s/%s]: Tipo de operacao '%c' desconhecido.", 
+                 "Ordem INVÁLIDA [%s/%s]: Tipo de operação '%c' desconhecido.", 
                  ordem.corretora, ordem.investidor, ordem.tipo);
         gravar_log(ficheiro_log, buffer_log);
         return 0;
@@ -136,13 +139,13 @@ int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const cha
     // Verifica se a quantidade e o preço são positivos
     if (ordem.quantidade <= 0 || ordem.preco <= 0.0f) {
         snprintf(buffer_log, sizeof(buffer_log), 
-                 "Ordem INVÁLIDA [%s/%s - %s]: Valores incoerentes (Qtd: %d | Preço: %.2f).", 
+                 "Ordem INVÁLIDA [%s/%s | %s]: Valores incoerentes (Qtd: %d | Preço: %.2f).", 
                  ordem.corretora, ordem.investidor, ordem.nome_empresa, ordem.quantidade, ordem.preco);
         gravar_log(ficheiro_log, buffer_log);
         return 0;
     }
 
-    // Verifica se a empresa existe e se a ordem de venda não excede as ações disponíveis
+    // Verifica se a empresa existe em memória
     int empresa_encontrada = 0;
     for (int i = 0; i < num_empresas; i++) {
         if (strcmp(empresas[i].nome, ordem.nome_empresa) == 0) {
@@ -158,7 +161,6 @@ int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const cha
         gravar_log(ficheiro_log, buffer_log);
         return 0;
     }
-
 
     // Se todas as verificações passaram, a ordem é válida
     snprintf(buffer_log, sizeof(buffer_log), 
