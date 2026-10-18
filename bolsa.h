@@ -32,7 +32,7 @@ typedef struct {
 
 typedef struct {
     char id_investidor[MAX_NOME];
-    DescritorAcao acoes[Max_Empresas];
+    DescritorAcao acoes[MAX_EMPRESAS];
     int num_ativos;
 } CarteiraInvestidor;
 
