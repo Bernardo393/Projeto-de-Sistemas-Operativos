@@ -15,10 +15,22 @@ typedef struct {
     float ultima_cotacao;
 } Empresa;
 
-// Protótipos das funções que vamos criar
+typedef struct {
+    char tipo;          // 'C' para compra, 'V' para venda
+    char corretora[MAX_NOME];
+    char investidor[MAX_NOME];
+    char nome_empresa[MAX_NOME];
+    int quantidade;
+    float preco;
+} OrdemCV;
+
+// Funções para manipulação de empresas
 void gravar_log(const char* nome_ficheiro, const char* mensagem);
 int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresas, const char *ficheiro_log);
 void verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log);
 int guardar_empresas(const char* ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log);
+
+// Funções para manipulação de ordens de compra e venda
+int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const char *ficheiro_log);
 
 #endif

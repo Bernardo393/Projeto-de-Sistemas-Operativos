@@ -113,3 +113,58 @@ int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas,
     gravar_log(ficheiro_log, msg);
     return 1;
 }
+
+int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+    char buffer_log[350];
+
+    // Verifica se os campos obrigatórios estão preenchidos
+    if (ordem.corretora[0] == '\0' || ordem.investidor[0] == '\0' || ordem.nome_empresa[0] == '\0') {
+        snprintf(buffer_log, sizeof(buffer_log), "Erro: Ordem inválida - campos obrigatórios não preenchidos.");
+        gravar_log(ficheiro_log, buffer_log);
+        return 0;
+    }
+    
+    // Verifica se o tipo de ordem é válido
+    if (ordem.tipo !='C' && ordem.tipo != 'V') {
+        snprintf(buffer_log, sizeof(buffer_log), 
+                 "Ordem INVALIDA [%s/%s]: Tipo de operacao '%c' desconhecido.", 
+                 ordem.corretora, ordem.investidor, ordem.tipo);
+        gravar_log(ficheiro_log, buffer_log);
+        return 0;
+    }
+    
+    // Verifica se a quantidade e o preço são positivos
+    if (ordem.quantidade <= 0 || ordem.preco <= 0.0f) {
+        snprintf(buffer_log, sizeof(buffer_log), 
+                 "Ordem INVÁLIDA [%s/%s - %s]: Valores incoerentes (Qtd: %d | Preço: %.2f).", 
+                 ordem.corretora, ordem.investidor, ordem.nome_empresa, ordem.quantidade, ordem.preco);
+        gravar_log(ficheiro_log, buffer_log);
+        return 0;
+    }
+
+    // Verifica se a empresa existe e se a ordem de venda não excede as ações disponíveis
+    int empresa_encontrada = 0;
+    for (int i = 0; i < num_empresas; i++) {
+        if (strcmp(empresas[i].nome, ordem.nome_empresa) == 0) {
+            empresa_encontrada = 1;
+            break;
+        }
+    }
+    
+    if (!empresa_encontrada) {
+        snprintf(buffer_log, sizeof(buffer_log), 
+                 "Ordem INVÁLIDA [%s/%s]: Empresa '%s' não encontrada.", 
+                 ordem.corretora, ordem.investidor, ordem.nome_empresa);
+        gravar_log(ficheiro_log, buffer_log);
+        return 0;
+    }
+
+
+    // Se todas as verificações passaram, a ordem é válida
+    snprintf(buffer_log, sizeof(buffer_log), 
+             "Ordem VÁLIDA [%s/%s]: %c | Empresa: %s | Qtd: %d | Preço: %.2f", 
+             ordem.corretora, ordem.investidor, ordem.tipo, ordem.nome_empresa, ordem.quantidade, ordem.preco);
+    gravar_log(ficheiro_log, buffer_log);
+
+    return 1;
+}
