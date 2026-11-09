@@ -5,9 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_EMPRESAS 50
+#define MAX_EMPRESAS 5
 #define MAX_NOME 30
-#define MAX_CARACTEIRAS 20
 
 typedef struct {
     char nome[MAX_NOME];
@@ -41,10 +40,10 @@ typedef struct {
 // Funções para manipulação de empresas
 void gravar_log(const char* nome_ficheiro, const char* mensagem);
 int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresas, const char *ficheiro_log);
-int verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log);
-int guardar_empresas(const char* ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log);
+int verificar_solucao(const Empresa empresas[], int num_empresas, const char *ficheiro_log);
+int guardar_empresas(const char* ficheiro, const Empresa empresas[], int num_empresas, const char *ficheiro_log);
 
 // Funções para manipulação de ordens de compra e venda
-int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const char *ficheiro_log);
+int validar_ordem(OrdemCV ordem, const Empresa empresas[], int num_empresas, const char *ficheiro_log);
 
 #endif

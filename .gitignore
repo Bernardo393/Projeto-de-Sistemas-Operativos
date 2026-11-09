@@ -8,3 +8,7 @@ cliente_bolsa
 # Ignorar ficheiros de log e temporarios
 eventos_*.txt
 *.tmp
+
+# Ficheiro do enunciado e identificador do Windows
+Enunciado.pdf
+Enunciado.pdf:Zone.Identifier

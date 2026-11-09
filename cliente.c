@@ -18,14 +18,14 @@ int main(int argc, char *argv[]) {
 
     // 2. Registo de Eventos do Cliente
     char msg_arranque[100];
-    snprintf(msg_arranque, sizeof(msg_arranque), "=== ARRANGUE DA CORRETORA: %s ===", nome_corretora);
+    snprintf(msg_arranque, sizeof(msg_arranque), "=== ARRANQUE DA CORRETORA: %s ===", nome_corretora);
     gravar_log(log_cliente, msg_arranque);
 
     printf("Corretora '%s' iniciada com sucesso.\n", nome_corretora);
     printf("A registar eventos em: %s\n", log_cliente);
 
     // (Futuro) Ponto de integração para a 2ª fase
-    gravar_log(log_cliente, "Configuração carregada. A aguardar implementação da 2ª Fase (Sockets).");
+    gravar_log(log_cliente, "Corretora iniciada. Comunicação com o servidor ainda não implementada.");
 
     // 3. Encerramento ordeiro
     gravar_log(log_cliente, "=== ENCERRAMENTO DA CORRETORA ===");

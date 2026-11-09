@@ -1,6 +1,16 @@
 #include "bolsa.h"
 
-int verificar_solucao(Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+// Função auxiliar para verificar se uma empresa existe no array
+static int empresa_existe(const Empresa empresas[], int num_empresas, const char *nome_empresa) {
+    for (int i = 0; i < num_empresas; i++) {
+        if (strcmp(empresas[i].nome, nome_empresa) == 0) {
+            return 1; 
+        }
+    }
+    return 0; 
+}
+
+int verificar_solucao(const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     int erros = 0;
     char buffer_log[150];
 
@@ -57,16 +67,34 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     char linha[256];
     *num_empresas = 0;
     int numero_linha = 0;
+    int erro_configuracao = 0;
+    Empresa empresa_lida;
 
     while (*num_empresas < MAX_EMPRESAS && fgets(linha, sizeof(linha), file)) {
         numero_linha++;
 
         if (sscanf(linha, "%29s | %d | %f | %f", 
-            empresas[*num_empresas].nome, 
-            &empresas[*num_empresas].acoes_disponiveis, 
-            &empresas[*num_empresas].valor_nominal, 
-            &empresas[*num_empresas].ultima_cotacao) == 4) {
-            
+            empresa_lida.nome,
+            &empresa_lida.acoes_disponiveis,
+            &empresa_lida.valor_nominal,
+            &empresa_lida.ultima_cotacao) == 4) {
+
+            if (empresa_existe(empresas, *num_empresas, empresa_lida.nome)) {
+                char erro[180];
+
+                snprintf(
+                    erro,
+                    sizeof(erro),
+                    "Erro: empresa duplicada na linha %d: '%s'.",
+                    numero_linha,
+                    empresa_lida.nome
+                );
+                gravar_log(ficheiro_log, erro);
+                erro_configuracao = 1;
+                continue;
+            }
+
+            empresas[*num_empresas] = empresa_lida;
             (*num_empresas)++;
         } else {
             char erro[150];
@@ -74,7 +102,35 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
             gravar_log(ficheiro_log, erro);
         }
     }
+
+    // Verifica se existem dados para além da capacidade suportada.
+    if (*num_empresas == MAX_EMPRESAS) {
+        while (fgets(linha, sizeof(linha), file) != NULL) {
+            int apenas_espacos = 1;
+
+            for (int i = 0; linha[i] != '\0'; i++) {
+                if (linha[i] != ' ' && 
+                    linha[i] != '\t' && 
+                    linha[i] != '\n' && 
+                    linha[i] != '\r') {
+                    apenas_espacos = 0;
+                    break;
+                }
+            }
+
+            if (!apenas_espacos) {
+                gravar_log(ficheiro_log, "Erro: o ficheiro contém mais empresas do que o limite suportado.");
+                erro_configuracao = 1;
+                break;
+            }
+        }
+    }   
+
     fclose(file);
+
+    if (erro_configuracao) {
+        return 0;
+    }
     
     char msg_sucesso[150];
     snprintf(msg_sucesso, sizeof(msg_sucesso), "Configuração carregada com sucesso: %d empresas lidas.", *num_empresas);
@@ -83,7 +139,7 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     return verificar_solucao(empresas, *num_empresas, ficheiro_log);
 }
 
-int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+int guardar_empresas(const char *ficheiro, const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     char ficheiro_tmp[256];
     snprintf(ficheiro_tmp, sizeof(ficheiro_tmp), "%s.tmp", ficheiro);
 
@@ -95,20 +151,34 @@ int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas,
         return 0;
     }
 
+    int em_escrita = 1;
+
     for (int i = 0; i < num_empresas; i++) {
-        fprintf(file, "%s | %d | %.2f | %.2f\n", 
+        if(fprintf(file, "%s | %d | %.2f | %.2f\n", 
             empresas[i].nome,
             empresas[i].acoes_disponiveis,
             empresas[i].valor_nominal,
-            empresas[i].ultima_cotacao);
+            empresas[i].ultima_cotacao) < 0) {
+                em_escrita = 0;
+                break;
+            }
     }
 
-    fclose(file);
+    if (fclose(file) != 0 ) {
+        em_escrita = 0;
+    } 
+
+    if (!em_escrita) {
+        gravar_log(ficheiro_log, "Erro crítico: Falha ao escrever no ficheiro temporário.");
+        remove(ficheiro_tmp);
+        return 0;
+    }
 
     if (rename(ficheiro_tmp, ficheiro) != 0) {
         char erro[350];
         snprintf(erro, sizeof(erro), "Erro crítico: Falha ao substituir '%s' pelo temporário.", ficheiro);        
         gravar_log(ficheiro_log, erro);
+        remove(ficheiro_tmp);
         return 0;
     }
 
@@ -118,7 +188,7 @@ int guardar_empresas(const char *ficheiro, Empresa empresas[], int num_empresas,
     return 1;
 }
 
-int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const char *ficheiro_log) {
+int validar_ordem(OrdemCV ordem, const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     char buffer_log[350];
 
     // Verifica se os campos obrigatórios estão preenchidos
@@ -145,22 +215,16 @@ int validar_ordem(OrdemCV ordem, Empresa empresas[], int num_empresas, const cha
         return 0;
     }
 
-    // Verifica se a empresa existe em memória
-    int empresa_encontrada = 0;
-    for (int i = 0; i < num_empresas; i++) {
-        if (strcmp(empresas[i].nome, ordem.nome_empresa) == 0) {
-            empresa_encontrada = 1;
-            break;
-        }
-    }
     
-    if (!empresa_encontrada) {
+    if (!empresa_existe(empresas, num_empresas, ordem.nome_empresa)) {
         snprintf(buffer_log, sizeof(buffer_log), 
-                 "Ordem INVÁLIDA [%s/%s]: Empresa '%s' não encontrada.", 
-                 ordem.corretora, ordem.investidor, ordem.nome_empresa);
+                "Ordem INVÁLIDA [%s/%s]: Empresa '%s' não encontrada.", 
+                ordem.corretora, ordem.investidor, ordem.nome_empresa);
+
         gravar_log(ficheiro_log, buffer_log);
         return 0;
     }
+
 
     // Se todas as verificações passaram, a ordem é válida
     snprintf(buffer_log, sizeof(buffer_log), 
