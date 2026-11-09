@@ -2,7 +2,7 @@
 **Disciplina:** Sistemas Operativos (2026/2027)
 **Instituição:** Universidade da Madeira
 **Grupo / Autores:**
-- Bernardo [O teu apelido] (Nº Mecanográfico: [O teu número])
+- Bernardo Pestana - 2107023
 - [Nome do Colega 2] (Nº Mecanográfico: [Número])
 - [Nome do Colega 3] (Nº Mecanográfico: [Número])
 
