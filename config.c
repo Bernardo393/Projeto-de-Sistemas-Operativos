@@ -1,13 +1,14 @@
 #include "bolsa.h"
 
-// Função auxiliar para verificar se uma empresa existe no array
-static int empresa_existe(const Empresa empresas[], int num_empresas, const char *nome_empresa) {
+
+// Função auxiliar para verificar se uma empresa existe pelo nome
+static int empresa_existe(const Empresa empresas[], int num_empresas, const char *nome) {
     for (int i = 0; i < num_empresas; i++) {
-        if (strcmp(empresas[i].nome, nome_empresa) == 0) {
-            return 1; 
+        if (strcmp(empresas[i].nome, nome) == 0) {
+            return 1;
         }
     }
-    return 0; 
+    return 0;
 }
 
 int verificar_solucao(const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
@@ -73,7 +74,7 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     while (*num_empresas < MAX_EMPRESAS && fgets(linha, sizeof(linha), file)) {
         numero_linha++;
 
-        if (sscanf(linha, "%29s | %d | %f | %f", 
+        if (sscanf(linha, "%29s | %d | %f | %f",
             empresa_lida.nome,
             &empresa_lida.acoes_disponiveis,
             &empresa_lida.valor_nominal,
@@ -85,7 +86,7 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
                 snprintf(
                     erro,
                     sizeof(erro),
-                    "Erro: empresa duplicada na linha %d: '%s'.",
+                    "Erro: Nome de empresa duplicado na linha %d: %s.",
                     numero_linha,
                     empresa_lida.nome
                 );
