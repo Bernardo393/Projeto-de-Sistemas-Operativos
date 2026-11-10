@@ -4,10 +4,12 @@
 # Ignorar executaveis
 servidor_bolsa
 cliente_bolsa
+investidor_bolsa
 
 # Ignorar ficheiros de log e temporarios
 eventos_*.txt
 *.tmp
+*.tmp /tmp/fifo_*
 
 # Ficheiro do enunciado e identificador do Windows
 Enunciado.pdf
