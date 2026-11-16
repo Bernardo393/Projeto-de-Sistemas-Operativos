@@ -8,7 +8,7 @@ int main() {
 
     gravar_log(log_servidor, "=== ARRANQUE DO SERVIDOR DA BOLSA ===");
 
-    if (carregar_empresas("config.txt", mercado, &total_empresas, log_servidor)) {
+    if (carregar_empresas("bvdata.txt", mercado, &total_empresas, log_servidor)) {
         printf("\nServidor iniciado. Mercado aberto com %d empresas cotadas.\n", total_empresas);
         printf("--------------------------------------------------\n");
         
@@ -29,7 +29,7 @@ int main() {
     
     
 
-    if (guardar_empresas("config.txt", mercado, total_empresas, log_servidor)) {
+    if (guardar_empresas("bvdata.txt", mercado, total_empresas, log_servidor)) {
         printf("Estado do mercado guardado com sucesso.\n");
     } else {
         printf("Falha ao guardar o estado do mercado. Verifique os logs.\n");

@@ -3,8 +3,8 @@
 
 # Ignorar executaveis
 servidor_bolsa
-cliente_bolsa
-investidor_bolsa
+corretora
+investidor
 
 # Ignorar ficheiros de log e temporarios
 eventos_*.txt
