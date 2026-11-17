@@ -1,4 +1,5 @@
 #include "bolsa.h"
+#include "comunicacao.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -13,58 +14,6 @@ static void limpar_buffer_stdin(void) {
     }
 }
 
-static int escrever_todos(int fd, const void *dados, size_t tamanho) {
-    const char *ponteiro = dados;
-    size_t escritos = 0;
-
-    while (escritos < tamanho) {
-        ssize_t resultado = write(fd, ponteiro + escritos, tamanho - escritos);
-
-        if (resultado < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            return 0;
-        }
-
-        if (resultado == 0) {
-            return 0;
-        }
-
-        escritos += (size_t) resultado;
-    }
-
-    return 1;
-}
-
-static int ler_todos(int fd, void *dados, size_t tamanho) {
-    char *ponteiro = dados;
-    size_t lidos = 0;
-
-    while (lidos < tamanho) {
-        ssize_t resultado = read(fd, ponteiro + lidos, tamanho - lidos);
-
-        if (resultado < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            return 0;
-        }
-
-        if (resultado == 0) {
-            return 0;
-        }
-
-        lidos += (size_t) resultado;
-    }
-
-    return 1;
-}
-
-static int copiar_texto(char destino[], size_t tamanho, const char *origem) {
-    int escritos = snprintf(destino, tamanho, "%s", origem);
-    return escritos >= 0 && (size_t) escritos < tamanho;
-}
 
 static void mostrar_menu(void) {
     printf("\n========================================\n");

@@ -1,28 +1,32 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g -pthread
+CFLAGS = -Wall -Wextra -g 
+LDLIBS = -pthread
+
 
 # Nomes dos executáveis finais
 TARGET_SERVIDOR = servidor_bolsa
 TARGET_CORRETORA = corretora
 TARGET_INVESTIDOR = investidor
 
-# A regra "all" agora gera os dois programas de uma vez
+OBJ_COMUNICACAO = comunicacao.o
+
+
 all: $(TARGET_SERVIDOR) $(TARGET_CORRETORA) $(TARGET_INVESTIDOR)
 
 # Compila a Bolsa de Valores
 $(TARGET_SERVIDOR): servidor_bolsa.o logger.o config.o
-	$(CC) $(CFLAGS) -o $(TARGET_SERVIDOR) servidor_bolsa.o logger.o config.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compila a Corretora
-$(TARGET_CORRETORA): corretora.o logger.o
-	$(CC) $(CFLAGS) -o $(TARGET_CORRETORA) corretora.o logger.o
+$(TARGET_CORRETORA): corretora.o logger.o $(OBJ_COMUNICACAO)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compila o Investidor (Cliente interface)
-$(TARGET_INVESTIDOR): investidor.o $(OBJS_COMUNS)
-	$(CC) $(CFLAGS) -o $(TARGET_INVESTIDOR) investidor.o $(OBJS_COMUNS)
+$(TARGET_INVESTIDOR): investidor.o $(OBJ_COMUNICACAO)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Regra genérica para converter ficheiros .c em ficheiros .o
-%.o: %.c bolsa.h
+%.o: %.c bolsa.h comunicacao.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
