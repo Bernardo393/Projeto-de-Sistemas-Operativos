@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-
+#include <limits.h>
 // Limites do sistema
 #define MAX_EMPRESAS 50
 #define MAX_CORRETORAS 5
@@ -20,7 +20,7 @@
 // Comunicação
 #define PORTA_BV 8080           // Porta para comunicação com o servidor da bolsa de valores
 #define IP_BV "127.0.0.1"       // Endereço IP do servidor da bolsa de valores
-#define MAX_PATH 64             // Tamanho máximo do caminho para ficheiros
+#define MAX_PATH 128             // Tamanho máximo do caminho para ficheiros
 
 #define FIFO_CORRETORA_PREFIX "/tmp/fifo_corretora_"  // Prefixo para o nome do FIFO de cada corretora
 #define FIFO_INVESTIDOR_PREFIX "/tmp/fifo_investidor_"      // Prefixo para o nome do FIFO de cada investidor
@@ -127,6 +127,7 @@ typedef struct {
 // Protocolo de Comunicação
 
 typedef enum {
+    MSG_INVALIDA = 0,
     MSG_REGISTAR_CORRETORA = 1,
     MSG_LOGIN_INVESTIDOR,
     MSG_LISTAR_COTACOES,
@@ -139,22 +140,46 @@ typedef enum {
     MSG_RESPOSTA_ERRO
 } TipoMensagem;
 
+
+// Investidor -> Corretora via FIFO público da corretora
 typedef struct {
     TipoMensagem tipo;
     char id_corretora[MAX_NOME];
     char id_investidor[MAX_NOME];
     char fifo_resposta[MAX_PATH]; // FIFO para enviar a resposta de volta
-    char mensagem[150]; 
-    int num_elementos; 
+    OrdemCV ordem;
+} PedidoInvestidor;
+
+_Static_assert(sizeof(PedidoInvestidor) <= PIPE_BUF,
+                "PedidoInvestidor excede PIPE_BUF.");
+
+// Corretora -> Investidor via FIFO privado do investidor
+typedef struct {
+    TipoMensagem tipo;
+    char id_corretora[MAX_NOME];
+    char id_investidor[MAX_NOME];
+    char mensagem[150];
+    int num_elementos;
+
+    union {
+        Empresa cotacoes[MAX_EMPRESAS];
+        CarteiraInvestidor carteira;
+    } dados;
+} RespostaCorretora;
+
+// Bolsa de Valores <-> Corretora via socket TCP
+typedef struct {
+    TipoMensagem tipo;
+    char id_corretora[MAX_NOME];
+    char mensagem[150];
+    int num_elementos;
 
     union {
         OrdemCV ordem;
         NotificacaoOrdemCV notificacao;
         Empresa cotacoes[MAX_EMPRESAS];
-        CarteiraInvestidor carteira;
     } dados;
-} MensagemProtocolo;
-
+} MensagemBolsaValores;
 
 
 // Funções para manipulação de empresas
