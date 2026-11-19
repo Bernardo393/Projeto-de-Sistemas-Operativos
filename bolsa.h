@@ -94,6 +94,8 @@ typedef struct {
     int fd_socket;      // Descritor do socket TCP da corretora
     int fd_pipe[2];     // Pipe interno (Matching -> Tarefa Dedicada)
     int ativa;          // 1 = ligada, 0 = slot livre
+    pthread_t thread;
+    int thread_criada;
 } DescritorCorretora;
 
 

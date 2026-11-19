@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g 
-LDLIBS = -pthread
+CFLAGS = -Wall -Wextra -g -pthread
+LDLIBS = -pthread -lm
 
 
 # Nomes dos executáveis finais
@@ -10,11 +10,12 @@ TARGET_INVESTIDOR = investidor
 
 OBJ_COMUNICACAO = comunicacao.o
 
+.PHONY: all clean
 
 all: $(TARGET_SERVIDOR) $(TARGET_CORRETORA) $(TARGET_INVESTIDOR)
 
 # Compila a Bolsa de Valores
-$(TARGET_SERVIDOR): servidor_bolsa.o logger.o config.o
+$(TARGET_SERVIDOR): servidor_bolsa.o logger.o config.o $(OBJ_COMUNICACAO)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Compila a Corretora
@@ -30,4 +31,5 @@ $(TARGET_INVESTIDOR): investidor.o $(OBJ_COMUNICACAO)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o $(TARGET_SERVIDOR) $(TARGET_CORRETORA) $(TARGET_INVESTIDOR) eventos_*.txt *.tmp /tmp/fifo_*
+	rm -f *.o $(TARGET_SERVIDOR) $(TARGET_CORRETORA) $(TARGET_INVESTIDOR) \
+		eventos_*.txt *.tmp /tmp/fifo_corretora_* /tmp/fifo_investidor_*

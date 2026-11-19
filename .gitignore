@@ -9,7 +9,6 @@ investidor
 # Ignorar ficheiros de log e temporarios
 eventos_*.txt
 *.tmp
-*.tmp /tmp/fifo_*
 
 # Ficheiro do enunciado e identificador do Windows
 Enunciado.pdf

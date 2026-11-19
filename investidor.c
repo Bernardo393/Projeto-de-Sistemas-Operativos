@@ -1,6 +1,7 @@
 #include "bolsa.h"
 #include "comunicacao.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
@@ -11,6 +12,74 @@
 #include <unistd.h>
 
 static char fifo_privado_global[MAX_PATH] = "";
+
+static void terminar_strings_resposta(
+    TipoMensagem tipo_pedido,
+    RespostaCorretora *resposta
+) {
+    resposta->id_corretora[MAX_NOME - 1] = '\0';
+    resposta->id_investidor[MAX_NOME - 1] = '\0';
+    resposta->mensagem[sizeof(resposta->mensagem) - 1] = '\0';
+
+    if (resposta->tipo != MSG_RESPOSTA_OK) {
+        return;
+    }
+
+    if (tipo_pedido == MSG_LISTAR_COTACOES &&
+        resposta->num_elementos >= 0 &&
+        resposta->num_elementos <= MAX_EMPRESAS) {
+        for (int i = 0; i < resposta->num_elementos; i++) {
+            resposta->dados.cotacoes[i].nome[MAX_NOME - 1] = '\0';
+        }
+    } else if (tipo_pedido == MSG_CONSULTAR_CARTEIRA ||
+               tipo_pedido == MSG_CONSULTAR_ORDENS) {
+        CarteiraInvestidor *carteira = &resposta->dados.carteira;
+        carteira->id_investidor[MAX_NOME - 1] = '\0';
+
+        if (carteira->num_ativos >= 0 &&
+            carteira->num_ativos <= MAX_EMPRESAS) {
+            for (int i = 0; i < carteira->num_ativos; i++) {
+                carteira->acoes[i].nome_empresa[MAX_NOME - 1] = '\0';
+            }
+        }
+
+        if (carteira->num_ordens_pendentes >= 0 &&
+            carteira->num_ordens_pendentes <= MAX_HISTORICO) {
+            for (int i = 0; i < carteira->num_ordens_pendentes; i++) {
+                carteira->ordens_pendentes[i].corretora[MAX_NOME - 1] = '\0';
+                carteira->ordens_pendentes[i].investidor[MAX_NOME - 1] = '\0';
+                carteira->ordens_pendentes[i].nome_empresa[MAX_NOME - 1] = '\0';
+            }
+        }
+
+        if (carteira->num_transacoes >= 0 &&
+            carteira->num_transacoes <= MAX_HISTORICO) {
+            for (int i = 0; i < carteira->num_transacoes; i++) {
+                carteira->transacoes_realizadas[i].corretora[MAX_NOME - 1] = '\0';
+                carteira->transacoes_realizadas[i].investidor[MAX_NOME - 1] = '\0';
+                carteira->transacoes_realizadas[i].nome_empresa[MAX_NOME - 1] = '\0';
+            }
+        }
+    }
+}
+
+static int identificador_valido(const char *identificador) {
+    if (identificador[0] == '\0' ||
+        strcmp(identificador, ".") == 0 ||
+        strcmp(identificador, "..") == 0) {
+        return 0;
+    }
+
+    for (size_t i = 0; identificador[i] != '\0'; i++) {
+        if (identificador[i] == '/' ||
+            identificador[i] == '\\' ||
+            isspace((unsigned char) identificador[i])) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 static void tratar_sinal_saida(int sinal) {
     (void) sinal;
@@ -156,6 +225,7 @@ static int enviar_pedido(
         fprintf(stderr, "Erro: falha ao receber resposta completa da corretora.\n");
         return 0;
     }
+    terminar_strings_resposta(pedido->tipo, resposta);
 
     return 1;
 }
@@ -302,6 +372,11 @@ int main(int argc, char *argv[]) {
     if (!copiar_texto(id_corretora, sizeof(id_corretora), argv[1]) ||
         !copiar_texto(id_investidor, sizeof(id_investidor), argv[2])) {
         fprintf(stderr, "Erro: identificador demasiado comprido.\n");
+        return EXIT_FAILURE;
+    }
+    if (!identificador_valido(id_corretora) ||
+        !identificador_valido(id_investidor)) {
+        fprintf(stderr, "Erro: identificador inválido.\n");
         return EXIT_FAILURE;
     }
 

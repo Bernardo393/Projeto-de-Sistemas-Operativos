@@ -2,6 +2,7 @@
 #include "comunicacao.h"
 
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -16,6 +17,44 @@
 
 static ListaCarteiras lista_carteiras;
 static volatile sig_atomic_t em_execucao = 1;
+
+static void terminar_strings_pedido(PedidoInvestidor *pedido) {
+    pedido->id_corretora[MAX_NOME - 1] = '\0';
+    pedido->id_investidor[MAX_NOME - 1] = '\0';
+    pedido->fifo_resposta[MAX_PATH - 1] = '\0';
+    pedido->ordem.corretora[MAX_NOME - 1] = '\0';
+    pedido->ordem.investidor[MAX_NOME - 1] = '\0';
+    pedido->ordem.nome_empresa[MAX_NOME - 1] = '\0';
+}
+
+static void terminar_strings_mensagem(MensagemBolsaValores *mensagem) {
+    mensagem->id_corretora[MAX_NOME - 1] = '\0';
+    mensagem->mensagem[sizeof(mensagem->mensagem) - 1] = '\0';
+
+    if (mensagem->tipo == MSG_NOTIFICACAO_TRANSACAO) {
+        mensagem->dados.notificacao.corretora[MAX_NOME - 1] = '\0';
+        mensagem->dados.notificacao.investidor[MAX_NOME - 1] = '\0';
+        mensagem->dados.notificacao.nome_empresa[MAX_NOME - 1] = '\0';
+    }
+}
+
+static int identificador_valido(const char *identificador) {
+    if (identificador[0] == '\0' ||
+        strcmp(identificador, ".") == 0 ||
+        strcmp(identificador, "..") == 0) {
+        return 0;
+    }
+
+    for (size_t i = 0; identificador[i] != '\0'; i++) {
+        if (identificador[i] == '/' ||
+            identificador[i] == '\\' ||
+            isspace((unsigned char) identificador[i])) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 static void tratar_sinal_encerramento(int sinal) {
     (void) sinal;
@@ -86,7 +125,11 @@ static int copiar_carteira(const char *id_investidor, CarteiraInvestidor *destin
     return 0;
 }
 
-static void registar_ordem_pendente_local(const char *id_investidor, const OrdemCV *ordem) {
+static void registar_ordem_pendente_local(
+    const char *id_investidor,
+    const OrdemCV *ordem,
+    const char *log_corretora
+) {
     pthread_mutex_lock(&lista_carteiras.mutex);
 
     for (int i = 0; i < lista_carteiras.num_carteiras; i++) {
@@ -95,6 +138,11 @@ static void registar_ordem_pendente_local(const char *id_investidor, const Ordem
             if (carteira->num_ordens_pendentes < MAX_HISTORICO) {
                 carteira->ordens_pendentes[carteira->num_ordens_pendentes] = *ordem;
                 carteira->num_ordens_pendentes++;
+            } else {
+                gravar_log(
+                    log_corretora,
+                    "Aviso: limite de ordens pendentes atingido para o investidor."
+                );
             }
             break;
         }
@@ -187,6 +235,7 @@ static int ligar_bolsa_valores(const char *id_corretora, const char *ip_bv, cons
         close(sock);
         return -1;
     }
+    terminar_strings_mensagem(&resposta_registo);
 
     if (resposta_registo.tipo != MSG_RESPOSTA_OK) {
         fprintf(stderr, "Corretora: registo rejeitado pela BV: %s\n", resposta_registo.mensagem);
@@ -234,6 +283,7 @@ static int comunicar_com_bv(
         if (!ler_todos(socket_bv, resposta, sizeof(*resposta))) {
             return 0;
         }
+        terminar_strings_mensagem(resposta);
 
         if (resposta->tipo == MSG_NOTIFICACAO_TRANSACAO) {
             registar_notificacao_bv(resposta, log_corretora);
@@ -367,6 +417,9 @@ static void processar_pedido(
                 if (resp_bv.tipo == MSG_RESPOSTA_OK &&
                     resp_bv.num_elementos >= 0 &&
                     resp_bv.num_elementos <= MAX_EMPRESAS) {
+                    for (int i = 0; i < resp_bv.num_elementos; i++) {
+                        resp_bv.dados.cotacoes[i].nome[MAX_NOME - 1] = '\0';
+                    }
                     resposta.num_elementos = resp_bv.num_elementos;
                     memcpy(resposta.dados.cotacoes, resp_bv.dados.cotacoes,
                            (size_t) resp_bv.num_elementos * sizeof(Empresa));
@@ -424,7 +477,11 @@ static void processar_pedido(
                 copiar_texto(resposta.mensagem, sizeof(resposta.mensagem), resp_bv.mensagem);
 
                 if (resp_bv.tipo == MSG_RESPOSTA_OK) {
-                    registar_ordem_pendente_local(pedido->id_investidor, &pedido_bv.dados.ordem);
+                    registar_ordem_pendente_local(
+                        pedido->id_investidor,
+                        &pedido_bv.dados.ordem,
+                        log_corretora
+                    );
                 }
             }
             break;
@@ -461,6 +518,10 @@ int main(int argc, char *argv[]) {
 
     if (!copiar_texto(id_corretora, sizeof(id_corretora), argv[1])) {
         fprintf(stderr, "Erro: identificador da corretora demasiado comprido.\n");
+        return EXIT_FAILURE;
+    }
+    if (!identificador_valido(id_corretora)) {
+        fprintf(stderr, "Erro: identificador da corretora inválido.\n");
         return EXIT_FAILURE;
     }
 
@@ -543,6 +604,7 @@ int main(int argc, char *argv[]) {
                 bv_ativa = 0;
                 break;
             }
+            terminar_strings_mensagem(&msg_bv);
 
             if (msg_bv.tipo == MSG_NOTIFICACAO_TRANSACAO) {
                 registar_notificacao_bv(&msg_bv, log_corretora);
@@ -557,6 +619,7 @@ int main(int argc, char *argv[]) {
             if (!ler_todos(fd_fifo, &pedido, sizeof(pedido))) {
                 continue;
             }
+            terminar_strings_pedido(&pedido);
 
             printf("[Corretora] Pedido tipo %d recebido de '%s'.\n",
                    pedido.tipo, pedido.id_investidor);

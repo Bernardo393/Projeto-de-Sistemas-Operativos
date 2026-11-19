@@ -1,5 +1,7 @@
 #include "bolsa.h"
 
+#include <ctype.h>
+#include <math.h>
 
 // Função auxiliar para verificar se uma empresa existe pelo nome
 static int empresa_existe(const Empresa empresas[], int num_empresas, const char *nome) {
@@ -9,6 +11,33 @@ static int empresa_existe(const Empresa empresas[], int num_empresas, const char
         }
     }
     return 0;
+}
+
+static int linha_vazia(const char *linha) {
+    for (int i = 0; linha[i] != '\0'; i++) {
+        if (linha[i] != ' ' &&
+            linha[i] != '\t' &&
+            linha[i] != '\n' &&
+            linha[i] != '\r') {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int nome_empresa_valido(const char *nome) {
+    if (nome[0] == '\0') {
+        return 0;
+    }
+
+    for (size_t i = 0; nome[i] != '\0'; i++) {
+        if (!isalnum((unsigned char) nome[i])) {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 int verificar_solucao(const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
@@ -30,13 +59,15 @@ int verificar_solucao(const Empresa empresas[], int num_empresas, const char *fi
             gravar_log(ficheiro_log, buffer_log);
             erros++;
         }
-        if (empresa->valor_nominal <= 0.0f) {
+            if (!isfinite(empresa->valor_nominal) ||
+                empresa->valor_nominal <= 0.0f) {
             printf("Erro: A empresa '%s' tem valor nominal inválido (%.2f).\n", empresa->nome, empresa->valor_nominal);
             snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem valor nominal inválido (%.2f).", empresa->nome, empresa->valor_nominal);
             gravar_log(ficheiro_log, buffer_log);
             erros++;
         }
-        if (empresa->ultima_cotacao <= 0.0f) {
+        if (!isfinite(empresa->ultima_cotacao) ||
+            empresa->ultima_cotacao <= 0.0f) {
             printf("Erro: A empresa '%s' tem última cotação inválida (%.2f).\n", empresa->nome, empresa->ultima_cotacao);
             snprintf(buffer_log, sizeof(buffer_log), "Erro: A empresa '%s' tem última cotação inválida (%.2f).", empresa->nome, empresa->ultima_cotacao);
             gravar_log(ficheiro_log, buffer_log);
@@ -74,11 +105,33 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
     while (*num_empresas < MAX_EMPRESAS && fgets(linha, sizeof(linha), file)) {
         numero_linha++;
 
-        if (sscanf(linha, "%29s | %d | %f | %f",
+        if (linha_vazia(linha)) {
+            continue;
+        }
+
+        char extra;
+
+        if (sscanf(linha, "%29s %d %f %f %c",
             empresa_lida.nome,
             &empresa_lida.acoes_disponiveis,
             &empresa_lida.valor_nominal,
-            &empresa_lida.ultima_cotacao) == 4) {
+            &empresa_lida.ultima_cotacao,
+            &extra) == 4) {
+
+            if (!nome_empresa_valido(empresa_lida.nome)) {
+                char erro[180];
+
+                snprintf(
+                    erro,
+                    sizeof(erro),
+                    "Erro: nome de empresa inválido na linha %d: %s.",
+                    numero_linha,
+                    empresa_lida.nome
+                );
+                gravar_log(ficheiro_log, erro);
+                erro_configuracao = 1;
+                continue;
+            }
 
             if (empresa_existe(empresas, *num_empresas, empresa_lida.nome)) {
                 char erro[180];
@@ -101,25 +154,14 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
             char erro[150];
             snprintf(erro, sizeof(erro), "Aviso: Formato inválido na linha %d do ficheiro de configuração.", numero_linha);
             gravar_log(ficheiro_log, erro);
+            erro_configuracao = 1;
         }
     }
 
     // Verifica se existem dados para além da capacidade suportada.
     if (*num_empresas == MAX_EMPRESAS) {
         while (fgets(linha, sizeof(linha), file) != NULL) {
-            int apenas_espacos = 1;
-
-            for (int i = 0; linha[i] != '\0'; i++) {
-                if (linha[i] != ' ' && 
-                    linha[i] != '\t' && 
-                    linha[i] != '\n' && 
-                    linha[i] != '\r') {
-                    apenas_espacos = 0;
-                    break;
-                }
-            }
-
-            if (!apenas_espacos) {
+            if (!linha_vazia(linha)) {
                 gravar_log(ficheiro_log, "Erro: o ficheiro contém mais empresas do que o limite suportado.");
                 erro_configuracao = 1;
                 break;
@@ -142,7 +184,12 @@ int carregar_empresas(const char* ficheiro, Empresa empresas[], int* num_empresa
 
 int guardar_empresas(const char *ficheiro, const Empresa empresas[], int num_empresas, const char *ficheiro_log) {
     char ficheiro_tmp[256];
-    snprintf(ficheiro_tmp, sizeof(ficheiro_tmp), "%s.tmp", ficheiro);
+    int tamanho = snprintf(ficheiro_tmp, sizeof(ficheiro_tmp), "%s.tmp", ficheiro);
+
+    if (tamanho < 0 || (size_t) tamanho >= sizeof(ficheiro_tmp)) {
+        gravar_log(ficheiro_log, "Erro crítico: caminho do ficheiro temporário demasiado longo.");
+        return 0;
+    }
 
     FILE *file = fopen(ficheiro_tmp, "w");
     if (file == NULL) {
@@ -155,7 +202,7 @@ int guardar_empresas(const char *ficheiro, const Empresa empresas[], int num_emp
     int em_escrita = 1;
 
     for (int i = 0; i < num_empresas; i++) {
-        if(fprintf(file, "%s | %d | %.2f | %.2f\n", 
+        if(fprintf(file, "%s %d %.2f %.2f\n",
             empresas[i].nome,
             empresas[i].acoes_disponiveis,
             empresas[i].valor_nominal,
@@ -208,7 +255,9 @@ int validar_ordem(OrdemCV ordem, const Empresa empresas[], int num_empresas, con
     }
     
     // Verifica se a quantidade e o preço são positivos
-    if (ordem.quantidade <= 0 || ordem.preco <= 0.0f) {
+    if (ordem.quantidade <= 0 ||
+        !isfinite(ordem.preco) ||
+        ordem.preco <= 0.0f) {
         snprintf(buffer_log, sizeof(buffer_log), 
                  "Ordem INVÁLIDA [%s/%s | %s]: Valores incoerentes (Qtd: %d | Preço: %.2f).", 
                  ordem.corretora, ordem.investidor, ordem.nome_empresa, ordem.quantidade, ordem.preco);
